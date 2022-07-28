@@ -29,7 +29,7 @@ import {
   RequestTimeoutError,
 } from "./Errors";
 
-import { isUserVerifyingPlatformAuthenticatorAvailable } from "./WebauthnSupport";
+import { isUserVerifyingPlatformAuthenticatorAvailable, isConditionalMediationAvailable } from "./WebauthnSupport";
 
 export interface PasswordConfig {
   enabled: boolean;
@@ -342,7 +342,7 @@ class WebauthnClient extends AbstractClient {
     this.webAuthnManager = new WebAuthnManager();
   }
 
-  login(userID?: string): Promise<void> {
+  login(userID?: string, mediation: boolean = false): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.client
         .post2("/webauthn/login/initialize", { user_id: userID })
@@ -354,9 +354,18 @@ class WebauthnClient extends AbstractClient {
           throw new TechnicalError();
         })
         .then((challenge: CredentialRequestOptionsJSON) => {
-          return getWebauthnCredential(challenge);
+          if (mediation) {
+            // @ts-ignore
+            challenge.mediation = "conditional";
+          }
+          console.log(challenge);
+          return getWebauthnCredential(challenge).then((result) => {
+            console.log(`Result: ${result}`);
+            return result;
+          });
         })
         .catch((e) => {
+          console.log(`Error: ${e}`);
           throw new WebAuthnRequestCancelledError(e);
         })
         .then((assertion: PublicKeyCredentialWithAssertionJSON) => {
@@ -427,6 +436,10 @@ class WebauthnClient extends AbstractClient {
 
   isAuthenticatorSupported() {
     return isUserVerifyingPlatformAuthenticatorAvailable();
+  }
+
+  isMediationConditionalAvailable() {
+    return isConditionalMediationAvailable();
   }
 
   shouldRegister(user: User): Promise<boolean> {

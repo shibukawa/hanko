@@ -30,10 +30,15 @@ services:
       - intranet
     environment:
       - PASSWORD_ENABLED
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend_https.rule=Host(`backend.localhost`)"
+      - "traefik.http.routers.backend_https.tls=true"
+      - "traefik.http.routers.backend_https.entrypoints=websecure"
   postgresd:
     image: postgres:12-alpine
     ports:
-      - "5432:5432"
+      - "5431:5432"
     environment:
       - POSTGRES_USER=hanko
       - POSTGRES_PASSWORD=hanko
@@ -52,21 +57,48 @@ services:
       - "9500:80"
     networks:
       - intranet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.js_https.rule=Host(`js.localhost`)"
+      - "traefik.http.routers.js_https.tls=true"
+      - "traefik.http.routers.js_https.entrypoints=websecure"
   example:
     build: ../../example
     ports:
       - "8888:8080"
     environment:
-      - HANKO_URL=http://localhost:8000
+      - HANKO_URL=https://backend.localhost:11111
       - HANKO_URL_INTERNAL=http://hanko:8000
-      - HANKO_ELEMENT_URL=http://localhost:9500/element.hanko-auth.js
+      - HANKO_ELEMENT_URL=https://js.localhost:11111/element.hanko-auth.js
     networks:
       - intranet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.example_https.rule=Host(`example.localhost`)"
+      - "traefik.http.routers.example_https.tls=true"
+      - "traefik.http.routers.example_https.entrypoints=websecure"
   mailslurper:
     image: marcopas/docker-mailslurper:latest
     ports:
       - '8080:8080' # web UI
       - '8085:8085'
+    networks:
+      - intranet
+  traefik:
+    image: "traefik:v2.6"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:11111"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf"
+    ports:
+      - "11111:11111"
+      - "8081:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/Users/fja/Documents/Projects/development-ssl-certificates:/tools/certs"
+      - "/Users/fja/Documents/Projects/hanko/deploy/docker-compose/traefik:/etc/traefik/dynamic_conf:ro"
     networks:
       - intranet
 networks:

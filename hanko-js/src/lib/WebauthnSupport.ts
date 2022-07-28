@@ -22,6 +22,19 @@ export async function isUserVerifyingPlatformAuthenticatorAvailable(): Promise<b
   return false;
 }
 
+export async function isConditionalMediationAvailable(): Promise<boolean> {
+  if (
+    supported() &&
+    // @ts-ignore
+    window.PublicKeyCredential.isConditionalMediationAvailable
+  ) {
+    // @ts-ignore
+    return await window.PublicKeyCredential.isConditionalMediationAvailable();
+  }
+
+  return false;
+}
+
 export async function isSecurityKeySupported(): Promise<boolean> {
   if (
     window.PublicKeyCredential !== undefined &&

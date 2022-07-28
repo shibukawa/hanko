@@ -52,7 +52,7 @@ const HankoAuth = ({ api, lang = "en" }: Props) => {
 };
 
 register(HankoAuth, "hanko-auth", ["api", "lang"], {
-  shadow: true,
+  shadow: false,
 });
 
 export default HankoAuth;
