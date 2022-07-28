@@ -24,12 +24,12 @@ server:
         - "*"
 webauthn:
   relying_party:
-    id: "example.localhost"
-    origin: "https://example.localhost:11111"
+    id: "example.test.de"
+    origin: "https://example.test.de:11111"
 session:
   cookie:
     secure: false # is needed for safari, because safari does not store secure cookies on localhost
-    domain: localhost
     same_site: lax
+  enable_auth_token_header: true
 password:
   enabled: false

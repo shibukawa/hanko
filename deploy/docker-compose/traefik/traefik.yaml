@@ -1,9 +1,9 @@
 tls:
   certificates:
-    - certFile: /tools/certs/10.0.0.173+4.pem
-      keyFile: /tools/certs/10.0.0.173+4-key.pem
+    - certFile: /tools/certs/example.test.de+2.pem
+      keyFile: /tools/certs/example.test.de+2-key.pem
   stores:
     default:
       defaultCertificate:
-        certFile: /tools/certs/10.0.0.173+4.pem
-        keyFile: /tools/certs/10.0.0.173+4-key.pem
+        certFile: /tools/certs/example.test.de+2.pem
+        keyFile: /tools/certs/example.test.de+2-key.pem

@@ -48,6 +48,7 @@ const LoginEmail = () => {
   const [isAuthenticatorSupported, setIsAuthenticatorSupported] =
     useState<boolean>(null);
   const [isConditionalMediationSupported, setIsConditionalMediationSupported] = useState<boolean>(false)
+  const [isConditionalRequestActive, setIsConditionalRequestActive] = useState<boolean>(false)
 
   // isAndroidUserAgent is used to determine whether the "Login with Passkey" button should be visible, as there is
   // currently no resident key support on Android.
@@ -163,23 +164,23 @@ const LoginEmail = () => {
   ]);
 
   useEffect(() => {
-    console.log(`useEffect: ${isConditionalMediationSupported}`);
-    console.log(`hankoClient: ${hanko}`);
-    if (isConditionalMediationSupported && hanko) {
-      console.log("mediation and hankoClient available");
+    if (isConditionalMediationSupported && hanko && !isConditionalRequestActive) {
+      setIsConditionalRequestActive(true)
       hanko.authenticator
         .login(null, true)
         .then(() => {
+          setIsConditionalRequestActive(false)
           setIsPasskeyLoginSuccess(true);
           emitSuccessEvent();
 
           return;
         })
         .catch((e) => {
+          setIsConditionalRequestActive(false)
           setError(e instanceof WebAuthnRequestCancelledError ? null : e);
         });
     }
-  }, [emitSuccessEvent, hanko, isConditionalMediationSupported]);
+  }, [emitSuccessEvent, hanko, isConditionalMediationSupported, isConditionalRequestActive]);
 
   return (
     <Content>
@@ -190,11 +191,11 @@ const LoginEmail = () => {
           name={"email"}
           type={"email"}
           autocomplete={"username webauthn"}
-          required={true}
           onInput={onEmailInput}
           value={email}
           label={t("labels.email")}
           pattern={"^.*[^0-9]+$"}
+          required={true}
           autofocus
         />
         <Button isLoading={isEmailLoginLoading} isSuccess={isEmailLoginSuccess}>

@@ -170,7 +170,7 @@ func (h *WebauthnHandler) BeginAuthentication(c echo.Context) error {
 	}
 
 	var loginOptions []webauthn.LoginOption
-	loginOptions = append(loginOptions, webauthn.WithUserVerification(protocol.VerificationRequired))
+	loginOptions = append(loginOptions, webauthn.WithUserVerification(protocol.VerificationPreferred))
 
 	if request.UserID != nil {
 		userId, err := uuid.FromString(*request.UserID)
@@ -245,8 +245,14 @@ func (h *WebauthnHandler) FinishAuthentication(c echo.Context) error {
 		credential, err := h.webauthn.ValidateDiscoverableLogin(func(rawID, userHandle []byte) (user webauthn.User, err error) {
 			return webauthnUser, nil
 		}, *model, request)
+		
 		if err != nil {
-			return dto.NewHTTPError(http.StatusUnauthorized, "failed to validate assertion").SetInternal(err)
+			switch e := err.(type) {
+			case *protocol.Error:
+				return dto.NewHTTPError(http.StatusUnauthorized, "failed to validate assertion").SetInternal(fmt.Errorf("%w: %s", err, e.DevInfo))
+			default:
+				return dto.NewHTTPError(http.StatusUnauthorized, "failed to validate assertion").SetInternal(err)
+			}
 		}
 
 		err = sessionDataPersister.Delete(*sessionData)
