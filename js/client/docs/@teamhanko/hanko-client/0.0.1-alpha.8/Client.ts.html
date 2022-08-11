@@ -1,0 +1,672 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title> Client.ts</title>
+
+  <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="./build/entry.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,700|Inconsolata,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+  <link type="text/css" rel="stylesheet" href="https://jmblog.github.io/color-themes-for-google-code-prettify/themes/tomorrow-night.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/app.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/iframe.css">
+  <link type="text/css" rel="stylesheet" href="">
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+  
+</head>
+
+
+
+<body class="layout small-header">
+    <div id="stickyNavbarOverlay"></div>
+    
+
+<div class="top-nav">
+    <div class="inner">
+        <a id="hamburger" role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+        <div class="logo">
+            
+            
+        </div>
+        <div class="menu">
+            
+            <div class="navigation">
+                <a
+                    href="index.html"
+                    class="link"
+                >
+                    Documentation
+                </a>
+                
+                
+                
+            </div>
+        </div>
+    </div>
+</div>
+    <div id="main">
+        <div
+            class="sidebar "
+            id="sidebarNav"
+        >
+            
+            <nav>
+                
+                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="Client.html">Client</a></li><li><a href="ConfigClient.html">ConfigClient</a></li></ul></div>
+                
+            </nav>
+        </div>
+        <div class="core" id="main-content-wrapper">
+            <div class="content">
+                <header class="page-title">
+                    <p>Source</p>
+                    <h1>Client.ts</h1>
+                </header>
+                
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import Cookies from "js-cookie";
+
+import {
+  get as getWebauthnCredential,
+  create as createWebauthnCredential,
+  CredentialRequestOptionsJSON,
+  PublicKeyCredentialWithAssertionJSON,
+  CredentialCreationOptionsJSON,
+} from "@github/webauthn-json";
+
+import { PasscodeState, PasswordState, WebAuthnState } from "./lib/State";
+
+import {
+  Config,
+  UserInfo,
+  User,
+  Me,
+  Passcode,
+  Attestation,
+  WebauthnFinalized,
+} from "./lib/DTO";
+
+import { isUserVerifyingPlatformAuthenticatorAvailable } from "./lib/Support";
+
+import {
+  InvalidPasswordError,
+  WebAuthnRequestCancelledError,
+  NotFoundError,
+  TooManyRequestsError,
+  TechnicalError,
+  MaxNumOfPasscodeAttemptsReachedError,
+  InvalidPasscodeError,
+  UnauthorizedError,
+  InvalidWebauthnCredentialError,
+  RequestTimeoutError,
+  ConflictError,
+} from "./lib/Errors";
+
+class Client {
+  /**
+   *  @public
+   *  @type {ConfigClient}
+   */
+  config: ConfigClient;
+  /**
+   *  @public
+   *  @type {UserClient}
+   */
+  user: UserClient;
+  /**
+   *  @public
+   *  @type {WebauthnClient}
+   */
+  authenticator: WebauthnClient;
+  /**
+   *  @public
+   *  @type {PasswordClient}
+   */
+  password: PasswordClient;
+  /**
+   *  @public
+   *  @type {PasscodeClient}
+   */
+  passcode: PasscodeClient;
+
+  /**
+   * @constructor
+   * @param {string} api - The URL of your Hanko API instance
+   * @param {number=} timeout - The request timeout in milliseconds
+   */
+  constructor(api: string, timeout: number = 13000) {
+    this.config = new ConfigClient(api, timeout);
+    this.user = new UserClient(api, timeout);
+    this.authenticator = new WebauthnClient(api, timeout);
+    this.password = new PasswordClient(api, timeout);
+    this.passcode = new PasscodeClient(api, timeout);
+  }
+}
+
+class Headers2 {
+  _xhr: XMLHttpRequest;
+
+  constructor(xhr: XMLHttpRequest) {
+    this._xhr = xhr;
+  }
+
+  get(name: string) {
+    return this._xhr.getResponseHeader(name);
+  }
+}
+
+class Response2 {
+  headers: Headers2;
+  ok: boolean;
+  status: number;
+  statusText: string;
+  url: string;
+  decodedJSON: any;
+
+  constructor(xhr: XMLHttpRequest) {
+    this.headers = new Headers2(xhr);
+    this.ok = xhr.status >= 200 &amp;&amp; xhr.status &lt;= 299;
+    this.status = xhr.status;
+    this.statusText = xhr.statusText;
+    this.url = xhr.responseURL;
+    this.decodedJSON = JSON.parse(xhr.response);
+  }
+
+  json() {
+    return this.decodedJSON;
+  }
+}
+
+class HttpClient {
+  timeout: number;
+  api: string;
+
+  constructor(api: string, timeout: number = 13000) {
+    this.api = api;
+    this.timeout = timeout;
+  }
+
+  _fetch(path: string, options: RequestInit) {
+    const api = this.api;
+    const url = api + path;
+    const timeout = this.timeout;
+    const cookieName = "hanko";
+    const bearerToken = Cookies.get(cookieName);
+
+    return new Promise&lt;Response2>(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+
+      xhr.open(options.method, url, true);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("Content-Type", "application/json");
+
+      if (bearerToken) {
+        xhr.setRequestHeader("Authorization", `Bearer ${bearerToken}`);
+      }
+
+      xhr.timeout = timeout;
+      xhr.withCredentials = true;
+      xhr.onload = () => {
+        const authToken = xhr.getResponseHeader("X-Auth-Token");
+
+        if (authToken) {
+          const secure = !!api.match("^https://");
+          Cookies.set(cookieName, authToken, { secure });
+        }
+
+        resolve(new Response2(xhr));
+      };
+      xhr.onerror = () => {
+        reject(new TechnicalError());
+      };
+      xhr.ontimeout = () => {
+        reject(new RequestTimeoutError());
+      };
+      xhr.send(options.body?.toString());
+    });
+  }
+
+  get(path: string) {
+    return this._fetch(path, { method: "GET" });
+  }
+
+  post(path: string, body?: any) {
+    return this._fetch(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  put(path: string, body?: any) {
+    return this._fetch(path, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  }
+}
+
+abstract class AbstractClient {
+  client: HttpClient;
+
+  constructor(api: string, timeout: number) {
+    this.client = new HttpClient(api, timeout);
+  }
+}
+
+/**
+ * @constructor
+ * @extends {AbstractClient}
+ */
+class ConfigClient extends AbstractClient {
+  /**
+   * Get the frontend configuration from the API
+   * @return {Promise&lt;Config>}
+   * @throws {TechnicalError}
+   */
+  get() {
+    return new Promise&lt;Config>((resolve, reject) => {
+      this.client
+        .get("/.well-known/config")
+        .then((response) => {
+          if (response.ok) {
+            return resolve(response.json());
+          }
+
+          throw new TechnicalError();
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+}
+
+class UserClient extends AbstractClient {
+  getInfo(email: string): Promise&lt;UserInfo> {
+    return new Promise&lt;UserInfo>((resolve, reject) => {
+      this.client
+        .post("/user", { email })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else if (response.status === 404) {
+            throw new NotFoundError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .then((u: UserInfo) => resolve(u))
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  create(email: string): Promise&lt;User> {
+    return new Promise&lt;User>((resolve, reject) => {
+      this.client
+        .post("/users", { email })
+        .then((response) => {
+          if (response.ok) {
+            return resolve(response.json());
+          } else if (response.status === 409) {
+            throw new ConflictError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  getCurrent(): Promise&lt;User> {
+    return new Promise&lt;User>((resolve, reject) =>
+      this.client
+        .get("/me")
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else if (
+            response.status === 400 ||
+            response.status === 401 ||
+            response.status === 404
+          ) {
+            throw new UnauthorizedError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .then((me: Me) => {
+          return this.client.get(`/users/${me.id}`);
+        })
+        .then((response) => {
+          if (response.ok) {
+            return resolve(response.json());
+          } else if (
+            response.status === 400 ||
+            response.status === 401 ||
+            response.status === 404
+          ) {
+            throw new UnauthorizedError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .catch((e) => {
+          reject(e);
+        })
+    );
+  }
+}
+
+class WebauthnClient extends AbstractClient {
+  state: WebAuthnState;
+
+  constructor(api: string, timeout: number) {
+    super(api, timeout);
+    this.state = new WebAuthnState();
+  }
+
+  login(userID?: string): Promise&lt;void> {
+    return new Promise&lt;void>((resolve, reject) => {
+      this.client
+        .post("/webauthn/login/initialize", { user_id: userID })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+
+          throw new TechnicalError();
+        })
+        .catch((e) => {
+          reject(e);
+        })
+        .then((challenge: CredentialRequestOptionsJSON) => {
+          return getWebauthnCredential(challenge);
+        })
+        .catch((e) => {
+          throw new WebAuthnRequestCancelledError(e);
+        })
+        .then((assertion: PublicKeyCredentialWithAssertionJSON) => {
+          return this.client.post("/webauthn/login/finalize", assertion);
+        })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else if (response.status === 400 || response.status === 401) {
+            throw new InvalidWebauthnCredentialError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .then((w: WebauthnFinalized) => {
+          this.state.setCredentialID(w.user_id, w.credential_id);
+          return resolve();
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  register(): Promise&lt;void> {
+    return new Promise((resolve, reject) => {
+      this.client
+        .post("/webauthn/registration/initialize")
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+
+          throw new TechnicalError();
+        })
+        .then((challenge: CredentialCreationOptionsJSON) => {
+          return createWebauthnCredential(challenge);
+        })
+        .catch((e) => {
+          throw new WebAuthnRequestCancelledError(e);
+        })
+        .then((attestation: Attestation) => {
+          // The generated PublicKeyCredentialWithAttestationJSON object does not align with the API. The list of
+          // supported transports must be available under a different path.
+          attestation.transports = attestation.response.transports;
+
+          return this.client.post(
+            "/webauthn/registration/finalize",
+            attestation
+          );
+        })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+
+          throw new TechnicalError();
+        })
+        .then((w: WebauthnFinalized) => {
+          this.state.setCredentialID(w.user_id, w.credential_id);
+          return resolve();
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  isAuthenticatorSupported() {
+    return isUserVerifyingPlatformAuthenticatorAvailable();
+  }
+
+  shouldRegister(user: User): Promise&lt;boolean> {
+    return new Promise&lt;boolean>((resolve, reject) => {
+      this.isAuthenticatorSupported()
+        .then((supported) => {
+          if (!user.webauthn_credentials || !user.webauthn_credentials.length) {
+            return resolve(supported);
+          }
+
+          const matches = this.state.matchCredentials(
+            user.id,
+            user.webauthn_credentials
+          );
+
+          return resolve(supported &amp;&amp; !matches.length);
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+}
+
+class PasswordClient extends AbstractClient {
+  state: PasswordState;
+
+  constructor(api: string, timeout: number) {
+    super(api, timeout);
+    this.state = new PasswordState();
+  }
+
+  login(userID: string, password: string): Promise&lt;void> {
+    return new Promise&lt;void>((resolve, reject) => {
+      this.client
+        .post("/password/login", { user_id: userID, password })
+        .then((response) => {
+          if (response.ok) {
+            return resolve();
+          } else if (response.status === 401) {
+            throw new InvalidPasswordError();
+          } else if (response.status === 429) {
+            const retryAfter = parseInt(
+              response.headers.get("X-Retry-After") || "0",
+              10
+            );
+
+            this.state.setRetryAfter(userID, retryAfter);
+
+            throw new TooManyRequestsError(retryAfter);
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  update(userID: string, password: string): Promise&lt;void> {
+    return new Promise&lt;void>((resolve, reject) => {
+      this.client
+        .put("/password", { user_id: userID, password })
+        .then((response) => {
+          if (response.ok) {
+            return resolve();
+          }
+
+          throw new TechnicalError();
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  getRetryAfter(userID: string) {
+    return this.state.getRetryAfter(userID);
+  }
+}
+
+class PasscodeClient extends AbstractClient {
+  state: PasscodeState;
+
+  constructor(api: string, timeout: number) {
+    super(api, timeout);
+    this.state = new PasscodeState();
+  }
+
+  initialize(userID: string): Promise&lt;Passcode> {
+    return new Promise&lt;Passcode>((resolve, reject) => {
+      this.client
+        .post("/passcode/login/initialize", { user_id: userID })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else if (response.status === 429) {
+            const retryAfter = parseInt(
+              response.headers.get("X-Retry-After") || "0",
+              10
+            );
+
+            this.state.setResendAfter(userID, retryAfter);
+
+            throw new TooManyRequestsError(retryAfter);
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .then((passcode: Passcode) => {
+          const ttl = passcode.ttl;
+
+          this.state.setActiveID(userID, passcode.id);
+          this.state.setTTL(userID, ttl);
+
+          return resolve(passcode);
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  finalize(userID: string, code: string): Promise&lt;void> {
+    const passcodeID = this.state.getActiveID(userID);
+
+    return new Promise&lt;void>((resolve, reject) => {
+      this.client
+        .post("/passcode/login/finalize", { id: passcodeID, code })
+        .then((response) => {
+          if (response.ok) {
+            this.state.removeActive(userID);
+            this.state.setResendAfter(userID, 0);
+
+            return resolve();
+          } else if (response.status === 401) {
+            throw new InvalidPasscodeError();
+          } else if (response.status === 404 || response.status === 410) {
+            this.state.removeActive(userID);
+
+            throw new MaxNumOfPasscodeAttemptsReachedError();
+          } else {
+            throw new TechnicalError();
+          }
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
+  }
+
+  getTTL(userID: string) {
+    return this.state.getTTL(userID);
+  }
+
+  getResendAfter(userID: string) {
+    return this.state.getResendAfter(userID);
+  }
+}
+
+export { Client };
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+            </div>
+            
+            <footer class="footer">
+                <div class="content has-text-centered">
+                    <p>Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.11</a></p>
+                    <p class="sidebar-created-by">
+                        <a href="https://github.com/SoftwareBrothers/better-docs" target="_blank">BetterDocs theme</a> provided with <i class="fas fa-heart"></i> by
+                        <a href="http://softwarebrothers.co" target="_blank">SoftwareBrothers - JavaScript Development Agency</a>
+                    </p>
+                </div>
+            </footer>
+            
+        </div>
+        <div id="side-nav" class="side-nav">
+        </div>
+    </div>
+<script src="scripts/app.min.js"></script>
+<script>PR.prettyPrint();</script>
+<script src="scripts/linenumber.js"> </script>
+
+
+</body>
+</html>
