@@ -7,25 +7,19 @@ export { Hanko };
 // Client
 
 import {
-  HttpClient,
   ConfigClient,
   UserClient,
   WebauthnClient,
   PasswordClient,
   PasscodeClient,
-  Headers,
-  Response,
 } from "./lib/Client";
 
 export {
-  HttpClient,
   ConfigClient,
   UserClient,
   WebauthnClient,
   PasswordClient,
   PasscodeClient,
-  Headers,
-  Response,
 };
 
 // WebauthnSupport
@@ -42,10 +36,8 @@ import {
   WebauthnFinalized,
   Credential,
   UserInfo,
-  Me,
   User,
   Passcode,
-  Attestation,
 } from "./lib/DTO";
 
 export type {
@@ -54,10 +46,8 @@ export type {
   WebauthnFinalized,
   Credential,
   UserInfo,
-  Me,
   User,
   Passcode,
-  Attestation,
 };
 
 // Errors

@@ -1,7 +1,6 @@
 /**
  * A class to check the browser's WebAuthN support.
  * @extends {HankoError}
- * @memberof module:SDK
  * @category SDK
  * @subcategory Utilities
  */

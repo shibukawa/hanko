@@ -416,10 +416,10 @@ class WebauthnClient extends AbstractClient {
   }
 
   /**
-   * First fetches the WebAuthN challenge. If 'userID' is specified, the API is able to provide a list of allowed
-   * credentials, and the browser is able to present only appropriate WebAuthN credentials to the user. After the
-   * challenge is signed, the assertion is sent back to the API to complete the process. If all goes well, the API
-   * issues a JWT so that the user can then make authorized requests.
+   * Performs a WebAuthn credential login. First fetches the WebAuthN challenge. If 'userID' is specified, the API is
+   * able to provide a list of allowed credentials, and the browser is able to present only appropriate WebAuthN
+   * credentials to the user. After the challenge is signed, the assertion is sent back to the API to complete the
+   * process. If all goes well, the API issues a JWT so that the user can then make authorized requests.
    *
    * @param {string=} userID - The user's UUID.
    * @return {Promise<void>}
@@ -471,9 +471,9 @@ class WebauthnClient extends AbstractClient {
   }
 
   /**
-   * Fetches a WebAuthN challenge and triggers the WebAuthN API to prompt the user to present their biometrics.
-   * The resulting assertion is sent back to the API to complete the process. The current user must be logged in
-   * to register a WebAuthn credential.
+   * Performs a WebAuthn credential registration. Fetches a WebAuthN challenge and triggers the WebAuthN API to prompt
+   * the user to present their biometrics. The resulting assertion is sent back to the API to complete the process. The
+   * current user must be logged in to register a WebAuthn credential.
    *
    * @return {Promise<void>}
    * @throws {WebAuthnRequestCancelledError}
