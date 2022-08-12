@@ -1,4 +1,40 @@
-import { Client } from "./Client";
+// Hanko
+
+import { Hanko } from "./Hanko";
+
+export { Hanko };
+
+// Client
+
+import {
+  HttpClient,
+  ConfigClient,
+  UserClient,
+  WebauthnClient,
+  PasswordClient,
+  PasscodeClient,
+  Headers,
+  Response,
+} from "./lib/Client";
+
+export {
+  HttpClient,
+  ConfigClient,
+  UserClient,
+  WebauthnClient,
+  PasswordClient,
+  PasscodeClient,
+  Headers,
+  Response,
+};
+
+// WebauthnSupport
+
+import { WebauthnSupport } from "./lib/WebauthnSupport";
+
+export { WebauthnSupport };
+
+// DTO
 
 import {
   PasswordConfig,
@@ -11,6 +47,20 @@ import {
   Passcode,
   Attestation,
 } from "./lib/DTO";
+
+export type {
+  PasswordConfig,
+  Config,
+  WebauthnFinalized,
+  Credential,
+  UserInfo,
+  Me,
+  User,
+  Passcode,
+  Attestation,
+};
+
+// Errors
 
 import {
   HankoError,
@@ -27,20 +77,6 @@ import {
   TooManyRequestsError,
   UnauthorizedError,
 } from "./lib/Errors";
-
-export { Client };
-
-export type {
-  PasswordConfig,
-  Config,
-  WebauthnFinalized,
-  Credential,
-  UserInfo,
-  Me,
-  User,
-  Passcode,
-  Attestation,
-};
 
 export {
   HankoError,

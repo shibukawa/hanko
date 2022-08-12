@@ -1,45 +1,69 @@
-class HankoError extends Error {
+/**
+ * Every error thrown in the SDK is an instance of HankoError. The value of the 'code' property is eligible to translate
+ * the error into an error message.
+ *
+ * @extends {Error}
+ * @category SDK
+ * @subcategory Errors
+ * @param code {string} An identifier that corresponds to the error class name
+ * @param cause {Error=} The original error
+ */
+abstract class HankoError extends Error {
   code: string;
   cause?: Error;
 
-  /*
-   * HankoError jesus
-   * @constructor
-   * @param code {string} An identifier that corresponds to the error class name
-   * @param cause {Error=} The original error
-   */
   constructor(message: string, code: string, cause?: Error) {
     super(message);
+    /**
+     * @public
+     * @type {string}
+     */
     this.code = code;
+    /**
+     * @public
+     * @type {Error=}
+     */
     this.cause = cause;
     Object.setPrototypeOf(this, HankoError.prototype);
   }
 }
 
+/**
+ * Every error that doesn't need to be handled in a special way is a TechnicalError. Whenever you catch one, there is
+ * usually nothing you can do but face an error to the user, e.g. "Something went wrong".
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class TechnicalError extends HankoError {
-  /*
-   * Every error that doesn't need to be handled in a special way is a TechnicalError.
-   * @constructor
-   * @extends {HankoError}
-   */
   constructor(cause?: Error) {
     super("Technical error", "somethingWentWrong", cause);
     Object.setPrototypeOf(this, TechnicalError.prototype);
   }
 }
 
+/**
+ * Attempting to create a resource that already exists results in a ConflictError.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class ConflictError extends HankoError {
-  /*
-   * Attempting to create a resource a second time results in a ConflictError.
-   * @constructor
-   * @extends {HankoError}
-   */
   constructor(userID?: string, cause?: Error) {
     super("Conflict error", "conflict", cause);
     Object.setPrototypeOf(this, ConflictError.prototype);
   }
 }
 
+/**
+ * A RequestTimeoutError occurs when the specified timeout has been reached.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class RequestTimeoutError extends HankoError {
   constructor(cause?: Error) {
     super("Request timed out error", "requestTimeout", cause);
@@ -47,6 +71,14 @@ class RequestTimeoutError extends HankoError {
   }
 }
 
+/**
+ * A WebAuthnRequestCancelledError occurs during WebAuthN authentication or registration, when the WebAuthN API throws
+ * an error. In most cases, this happens when the user cancels the browser's WebAuthN dialog.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class WebAuthnRequestCancelledError extends HankoError {
   constructor(cause?: Error) {
     super("Request cancelled error", "requestCancelled", cause);
@@ -54,6 +86,13 @@ class WebAuthnRequestCancelledError extends HankoError {
   }
 }
 
+/**
+ * An InvalidPasswordError occurs when invalid credentials are provided when logging in with a password.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class InvalidPasswordError extends HankoError {
   constructor(cause?: Error) {
     super("Invalid password error", "invalidPassword", cause);
@@ -61,6 +100,13 @@ class InvalidPasswordError extends HankoError {
   }
 }
 
+/**
+ * An InvalidPasswordError occurs when an incorrect code is entered when logging in with a passcode.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class InvalidPasscodeError extends HankoError {
   constructor(cause?: Error) {
     super("Invalid Passcode error", "invalidPasscode", cause);
@@ -68,6 +114,13 @@ class InvalidPasscodeError extends HankoError {
   }
 }
 
+/**
+ * An InvalidWebauthnCredentialError occurs if invalid credentials were used when logging in with WebAuthN.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class InvalidWebauthnCredentialError extends HankoError {
   constructor(cause?: Error) {
     super(
@@ -79,6 +132,13 @@ class InvalidWebauthnCredentialError extends HankoError {
   }
 }
 
+/**
+ * A PasscodeExpiredError occurs when the passcode has expired.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class PasscodeExpiredError extends HankoError {
   constructor(cause?: Error) {
     super("Passcode expired error", "passcodeExpired", cause);
@@ -86,6 +146,13 @@ class PasscodeExpiredError extends HankoError {
   }
 }
 
+/**
+ * A MaxNumOfPasscodeAttemptsReachedError occurs when the passcode is entered incorrectly too many times.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class MaxNumOfPasscodeAttemptsReachedError extends HankoError {
   constructor(cause?: Error) {
     super(
@@ -97,6 +164,13 @@ class MaxNumOfPasscodeAttemptsReachedError extends HankoError {
   }
 }
 
+/**
+ * A NotFoundError occurs when the requested resource was not found.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ */
 class NotFoundError extends HankoError {
   constructor(cause?: Error) {
     super("Not found error", "notFound", cause);
@@ -104,6 +178,14 @@ class NotFoundError extends HankoError {
   }
 }
 
+/**
+ * A TooManyRequestsError occurs due to rate limiting when too many requests are made.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ * @ignore
+ */
 class TooManyRequestsError extends HankoError {
   retryAfter?: number;
   constructor(retryAfter?: number, cause?: Error) {
@@ -113,6 +195,14 @@ class TooManyRequestsError extends HankoError {
   }
 }
 
+/**
+ * An UnauthorizedError occurs when the user is not authorized to access the resource.
+ *
+ * @category SDK
+ * @subcategory Errors
+ * @extends {HankoError}
+ * @ignore
+ */
 class UnauthorizedError extends HankoError {
   constructor(cause?: Error) {
     super("Unauthorized error", "unauthorized", cause);

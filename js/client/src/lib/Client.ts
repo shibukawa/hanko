@@ -1,83 +1,50 @@
 import Cookies from "js-cookie";
 
 import {
-  get as getWebauthnCredential,
-  create as createWebauthnCredential,
-  CredentialRequestOptionsJSON,
-  PublicKeyCredentialWithAssertionJSON,
-  CredentialCreationOptionsJSON,
-} from "@github/webauthn-json";
-
-import { PasscodeState, PasswordState, WebAuthnState } from "./lib/State";
+  ConflictError,
+  InvalidPasscodeError,
+  InvalidPasswordError,
+  InvalidWebauthnCredentialError,
+  MaxNumOfPasscodeAttemptsReachedError,
+  NotFoundError,
+  RequestTimeoutError,
+  TechnicalError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  WebAuthnRequestCancelledError,
+} from "./Errors";
 
 import {
+  Attestation,
   Config,
-  UserInfo,
-  User,
   Me,
   Passcode,
-  Attestation,
+  User,
+  UserInfo,
   WebauthnFinalized,
-} from "./lib/DTO";
+} from "./DTO";
 
-import { isUserVerifyingPlatformAuthenticatorAvailable } from "./lib/Support";
+import { PasscodeState, PasswordState, WebAuthnState } from "./State";
+
+import { WebauthnSupport } from "./WebauthnSupport";
 
 import {
-  InvalidPasswordError,
-  WebAuthnRequestCancelledError,
-  NotFoundError,
-  TooManyRequestsError,
-  TechnicalError,
-  MaxNumOfPasscodeAttemptsReachedError,
-  InvalidPasscodeError,
-  UnauthorizedError,
-  InvalidWebauthnCredentialError,
-  RequestTimeoutError,
-  ConflictError,
-} from "./lib/Errors";
+  create as createWebauthnCredential,
+  get as getWebauthnCredential,
+  CredentialCreationOptionsJSON,
+  CredentialRequestOptionsJSON,
+  PublicKeyCredentialWithAssertionJSON,
+} from "@github/webauthn-json";
 
-class Client {
-  /**
-   *  @public
-   *  @type {ConfigClient}
-   */
-  config: ConfigClient;
-  /**
-   *  @public
-   *  @type {UserClient}
-   */
-  user: UserClient;
-  /**
-   *  @public
-   *  @type {WebauthnClient}
-   */
-  authenticator: WebauthnClient;
-  /**
-   *  @public
-   *  @type {PasswordClient}
-   */
-  password: PasswordClient;
-  /**
-   *  @public
-   *  @type {PasscodeClient}
-   */
-  passcode: PasscodeClient;
-
-  /**
-   * @constructor
-   * @param {string} api - The URL of your Hanko API instance
-   * @param {number=} timeout - The request timeout in milliseconds
-   */
-  constructor(api: string, timeout: number = 13000) {
-    this.config = new ConfigClient(api, timeout);
-    this.user = new UserClient(api, timeout);
-    this.authenticator = new WebauthnClient(api, timeout);
-    this.password = new PasswordClient(api, timeout);
-    this.passcode = new PasscodeClient(api, timeout);
-  }
-}
-
-class Headers2 {
+/**
+ * This class wraps an XMLHttpRequest to maintain compatibility with the fetch API.
+ *
+ * @category SDK
+ * @subcategory Internal
+ * @param {XMLHttpRequest} xhr - The request to be wrapped.
+ * @see HttpClient
+ */
+class Headers {
   _xhr: XMLHttpRequest;
 
   constructor(xhr: XMLHttpRequest) {
@@ -89,28 +56,75 @@ class Headers2 {
   }
 }
 
-class Response2 {
-  headers: Headers2;
+/**
+ * This class wraps an XMLHttpRequest to maintain compatibility with the fetch API.
+ *
+ * @category SDK
+ * @subcategory Internal
+ * @param {XMLHttpRequest} xhr - The request to be wrapped.
+ * @see HttpClient
+ */
+class Response {
+  headers: Headers;
   ok: boolean;
   status: number;
   statusText: string;
   url: string;
-  decodedJSON: any;
+  _decodedJSON: any;
 
   constructor(xhr: XMLHttpRequest) {
-    this.headers = new Headers2(xhr);
+    /**
+     *  @public
+     *  @type {Headers}
+     */
+    this.headers = new Headers(xhr);
+    /**
+     *  @public
+     *  @type {boolean}
+     */
     this.ok = xhr.status >= 200 && xhr.status <= 299;
+    /**
+     *  @public
+     *  @type {number}
+     */
     this.status = xhr.status;
+    /**
+     *  @public
+     *  @type {string}
+     */
     this.statusText = xhr.statusText;
+    /**
+     *  @public
+     *  @type {string}
+     */
     this.url = xhr.responseURL;
-    this.decodedJSON = JSON.parse(xhr.response);
+    this._decodedJSON = JSON.parse(xhr.response);
   }
 
+  /**
+   * Returns the JSON decoded response.
+   *
+   * @return {any}
+   */
   json() {
-    return this.decodedJSON;
+    return this._decodedJSON;
   }
 }
 
+/**
+ * The HttpClient is used internally for communication with the Hanko API. It also manages the authorization token in
+ * order to enable authorized requests.
+ *
+ * Currently, there is an issue with Safari and on iOS 15 devices where decoding a JSON response via the fetch API
+ * breaks the user gesture and the user is not able to use the authenticator. Therefore, this class uses XMLHttpRequests
+ * instead of the fetch API, but maintains compatibility by wrapping the XMLHttpRequests. So, if the issues are fixed,
+ * we can simply return to the fetch API.
+ *
+ * @category SDK
+ * @subcategory Internal
+ * @param {string} api - The URL of your Hanko API instance
+ * @param {number=} timeout - The request timeout in milliseconds
+ */
 class HttpClient {
   timeout: number;
   api: string;
@@ -127,7 +141,7 @@ class HttpClient {
     const cookieName = "hanko";
     const bearerToken = Cookies.get(cookieName);
 
-    return new Promise<Response2>(function (resolve, reject) {
+    return new Promise<Response>(function (resolve, reject) {
       const xhr = new XMLHttpRequest();
 
       xhr.open(options.method, url, true);
@@ -148,22 +162,42 @@ class HttpClient {
           Cookies.set(cookieName, authToken, { secure });
         }
 
-        resolve(new Response2(xhr));
+        resolve(new Response(xhr));
       };
+
       xhr.onerror = () => {
         reject(new TechnicalError());
       };
+
       xhr.ontimeout = () => {
         reject(new RequestTimeoutError());
       };
-      xhr.send(options.body?.toString());
+
+      xhr.send(options.body ? options.body.toString() : null);
     });
   }
 
+  /**
+   * Performs a GET request.
+   *
+   * @param {string} path - The path to the requested resource.
+   * @return {Promise<Response>}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   get(path: string) {
     return this._fetch(path, { method: "GET" });
   }
 
+  /**
+   * Performs a POST request.
+   *
+   * @param {string} path - The path to the requested resource.
+   * @param {any=} body - The request body.
+   * @return {Promise<Response>}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   post(path: string, body?: any) {
     return this._fetch(path, {
       method: "POST",
@@ -171,6 +205,15 @@ class HttpClient {
     });
   }
 
+  /**
+   * Performs a PUT request.
+   *
+   * @param {string} path - The path to the requested resource.
+   * @param {any=} body - The request body.
+   * @return {Promise<Response>}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   put(path: string, body?: any) {
     return this._fetch(path, {
       method: "PUT",
@@ -179,22 +222,36 @@ class HttpClient {
   }
 }
 
+/**
+ * @category SDK
+ * @subcategory Internal
+ * @param {string} api - The URL of your Hanko API instance
+ * @param {number=} timeout - The request timeout in milliseconds
+ */
 abstract class AbstractClient {
-  client: HttpClient;
+  protected client: HttpClient;
 
-  constructor(api: string, timeout: number) {
+  constructor(api: string, timeout = 13000) {
+    /**
+     *  @protected
+     *  @type {HttpClient}
+     */
     this.client = new HttpClient(api, timeout);
   }
 }
 
 /**
- * @constructor
+ * A class to retrieve the configuration from the API.
+ *
+ * @category SDK
+ * @subcategory Clients
  * @extends {AbstractClient}
  */
 class ConfigClient extends AbstractClient {
   /**
-   * Get the frontend configuration from the API
+   * Retrieves the frontend configuration from the API
    * @return {Promise<Config>}
+   * @throws {RequestTimeoutError}
    * @throws {TechnicalError}
    */
   get() {
@@ -215,7 +272,26 @@ class ConfigClient extends AbstractClient {
   }
 }
 
+/**
+ * A class to manage user information.
+ *
+ * @constructor
+ * @category SDK
+ * @subcategory Clients
+ * @extends {AbstractClient}
+ */
 class UserClient extends AbstractClient {
+  /**
+   * Fetches basic information about the user by providing an email address. Can be used while the user is logged out
+   * and is helpful in deciding which type of login to choose. For example, if the user's email is not verified, you may
+   * want to log in with a passcode, or if no WebAuthN credentials are registered, you may not want to use WebAuthN.
+   *
+   * @param {string} email - The user's email address.
+   * @return {Promise<UserInfo>}
+   * @throws {NotFoundError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   getInfo(email: string): Promise<UserInfo> {
     return new Promise<UserInfo>((resolve, reject) => {
       this.client
@@ -236,6 +312,16 @@ class UserClient extends AbstractClient {
     });
   }
 
+  /**
+   * Creates a new user. If this was successful, the next step should be to verify the given email address
+   * via a passcode. If a ConflictError occurred, you may want to prompt the user to log in.
+   *
+   * @param {string} email - The email address of the user to be created.
+   * @return {Promise<User>}
+   * @throws {ConflictError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   create(email: string): Promise<User> {
     return new Promise<User>((resolve, reject) => {
       this.client
@@ -255,6 +341,14 @@ class UserClient extends AbstractClient {
     });
   }
 
+  /**
+   * Fetches the current user if a valid JWT exists.
+   *
+   * @return {Promise<User>}
+   * @throws {UnauthorizedError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   getCurrent(): Promise<User> {
     return new Promise<User>((resolve, reject) =>
       this.client
@@ -295,14 +389,45 @@ class UserClient extends AbstractClient {
   }
 }
 
+/**
+ * A class that handles WebAuthN authentication and registration.
+ *
+ * @constructor
+ * @category SDK
+ * @subcategory Clients
+ * @extends {AbstractClient}
+ */
 class WebauthnClient extends AbstractClient {
-  state: WebAuthnState;
+  private state: WebAuthnState;
+  support: WebauthnSupport;
 
   constructor(api: string, timeout: number) {
     super(api, timeout);
+    /**
+     *  @private
+     *  @type {WebAuthnState}
+     */
     this.state = new WebAuthnState();
+    /**
+     *  @public
+     *  @type {WebauthnSupport}
+     */
+    this.support = new WebauthnSupport();
   }
 
+  /**
+   * First fetches the WebAuthN challenge. If 'userID' is specified, the API is able to provide a list of allowed
+   * credentials, and the browser is able to present only appropriate WebAuthN credentials to the user. After the
+   * challenge is signed, the assertion is sent back to the API to complete the process. If all goes well, the API
+   * issues a JWT so that the user can then make authorized requests.
+   *
+   * @param {string=} userID - The user's UUID.
+   * @return {Promise<void>}
+   * @throws {WebAuthnRequestCancelledError}
+   * @throws {InvalidWebauthnCredentialError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   login(userID?: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.client
@@ -345,6 +470,17 @@ class WebauthnClient extends AbstractClient {
     });
   }
 
+  /**
+   * Fetches a WebAuthN challenge and triggers the WebAuthN API to prompt the user to present their biometrics.
+   * The resulting assertion is sent back to the API to complete the process. The current user must be logged in
+   * to register a WebAuthn credential.
+   *
+   * @return {Promise<void>}
+   * @throws {WebAuthnRequestCancelledError}
+   * @throws {RequestTimeoutError}
+   * @throws {UnauthorizedError}
+   * @throws {TechnicalError}
+   */
   register(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.client
@@ -389,13 +525,19 @@ class WebauthnClient extends AbstractClient {
     });
   }
 
-  isAuthenticatorSupported() {
-    return isUserVerifyingPlatformAuthenticatorAvailable();
-  }
-
+  /**
+   * Determines whether the user should be prompted to register a new WebAuthn credential. This is the case when a
+   * platform authenticator is available and the user's credential IDs do not intersect with the credential IDs in local
+   * storage.
+   *
+   * @param {User} user - The user object.
+   * @return {Promise<boolean>}
+   * @throws {TechnicalError}
+   */
   shouldRegister(user: User): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
-      this.isAuthenticatorSupported()
+      this.support
+        .isUserVerifyingPlatformAuthenticatorAvailable()
         .then((supported) => {
           if (!user.webauthn_credentials || !user.webauthn_credentials.length) {
             return resolve(supported);
@@ -409,20 +551,42 @@ class WebauthnClient extends AbstractClient {
           return resolve(supported && !matches.length);
         })
         .catch((e) => {
-          reject(e);
+          reject(new TechnicalError(e));
         });
     });
   }
 }
 
+/**
+ * A class to handle passwords. .
+ *
+ * @constructor
+ * @category SDK
+ * @subcategory Clients
+ * @extends {AbstractClient}
+ */
 class PasswordClient extends AbstractClient {
-  state: PasswordState;
+  private state: PasswordState;
 
   constructor(api: string, timeout: number) {
     super(api, timeout);
+    /**
+     *  @private
+     *  @type {PasswordState}
+     */
     this.state = new PasswordState();
   }
 
+  /**
+   * Logs in a user with a password. If successful, a JWT is issued.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @param {string} password - The password.
+   * @return {Promise<void>}
+   * @throws {TooManyRequestsError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   login(userID: string, password: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.client
@@ -451,6 +615,16 @@ class PasswordClient extends AbstractClient {
     });
   }
 
+  /**
+   * Updates a password. A valid JWT must be present.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @param {string} password - The new password.
+   * @return {Promise<void>}
+   * @throws {RequestTimeoutError}
+   * @throws {UnauthorizedError}
+   * @throws {TechnicalError}
+   */
   update(userID: string, password: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.client
@@ -468,19 +642,46 @@ class PasswordClient extends AbstractClient {
     });
   }
 
+  /**
+   * Returns the seconds until the rate limiting is active regarding passwords.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @return {number}
+   */
   getRetryAfter(userID: string) {
     return this.state.getRetryAfter(userID);
   }
 }
 
+/**
+ * A class to handle passcodes. .
+ *
+ * @constructor
+ * @category SDK
+ * @subcategory Clients
+ * @extends {AbstractClient}
+ */
 class PasscodeClient extends AbstractClient {
-  state: PasscodeState;
+  private state: PasscodeState;
 
   constructor(api: string, timeout: number) {
     super(api, timeout);
+    /**
+     *  @private
+     *  @type {PasscodeState}
+     */
     this.state = new PasscodeState();
   }
 
+  /**
+   * Causes the API to send a new passcode to the user's email address.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @return {Promise<Passcode>}
+   * @throws {TooManyRequestsError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   initialize(userID: string): Promise<Passcode> {
     return new Promise<Passcode>((resolve, reject) => {
       this.client
@@ -515,6 +716,18 @@ class PasscodeClient extends AbstractClient {
     });
   }
 
+  /**
+   * Validates the passcode obtained from the email against the API. If the correct code is submitted, a JWT is
+   * issued.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @param {string} code - The passcode digests.
+   * @return {Promise<void>}
+   * @throws {InvalidPasscodeError}
+   * @throws {MaxNumOfPasscodeAttemptsReachedError}
+   * @throws {RequestTimeoutError}
+   * @throws {TechnicalError}
+   */
   finalize(userID: string, code: string): Promise<void> {
     const passcodeID = this.state.getActiveID(userID);
 
@@ -543,13 +756,34 @@ class PasscodeClient extends AbstractClient {
     });
   }
 
+  /**
+   * Returns the seconds until the current passcode is active.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @return {number}
+   */
   getTTL(userID: string) {
     return this.state.getTTL(userID);
   }
 
+  /**
+   * Returns the seconds until the rate limiting is active regarding passcodes.
+   *
+   * @param {string} userID - The UUID of the user.
+   * @return {number}
+   */
   getResendAfter(userID: string) {
     return this.state.getResendAfter(userID);
   }
 }
 
-export { Client };
+export {
+  HttpClient,
+  ConfigClient,
+  UserClient,
+  WebauthnClient,
+  PasswordClient,
+  PasscodeClient,
+  Headers,
+  Response,
+};

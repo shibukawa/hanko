@@ -3,15 +3,16 @@
     "template": "node_modules/better-docs"
   },
   "tags": {
-    "allowUnknownTags": ["optional"],
+    "allowUnknownTags": ["category", "subcategory"],
     "dictionaries": ["jsdoc", "closure"]
   },
   "plugins": [
-    "node_modules/better-docs/typescript"
+    "node_modules/better-docs/typescript",
+    "node_modules/better-docs/category"
   ],
   "source": {
     "include": ["./src"],
-    "includePattern": ".+\\.(ts)$"
+    "includePattern": ".(ts)$"
   },
   "templates": {
     "cleverLinks": true

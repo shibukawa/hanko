@@ -1,13 +1,13 @@
 {
   "name": "@teamhanko/hanko-client",
-  "version": "0.0.1-alpha.8",
+  "version": "0.0.1-alpha.9",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "types": "dist/index.d.ts",
   "type": "module",
-  "source": "src/Client.ts",
+  "source": "src/index.ts",
   "exports": {
     "require": "./dist/client.cjs",
     "default": "./dist/client.modern.js"

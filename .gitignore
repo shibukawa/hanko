@@ -24,6 +24,7 @@ js/elements/dist/
 js/elements/node_modules/
 js/client/dist/
 js/client/node_modules/
+js/client/docs/
 e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
